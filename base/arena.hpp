@@ -16,7 +16,7 @@ struct ArenaRegion {
 	isize  offset;
 };
 
-Arena arena_create();
+Arena arena_create(Slice<u8> buf);
 
 void* arena_alloc(Arena* a, isize nbytes, isize align);
 
