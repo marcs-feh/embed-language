@@ -48,6 +48,57 @@ T clamp(T lo, T x, T hi){
 	return min(max(lo, x), hi);
 }
 
+// Results are used for error handling, a result is considered to be OK (valid
+// value field) if its `error` field is zero.
+template<typename Value, typename Error>
+struct Result {
+	Value value;
+	Error error;
+
+	Result() : error{0} {}
+	Result(Value v) : value(v), error{0} {}
+	Result(Error e) : error(e) {}
+};
+
+template<typename Value, typename Error>
+bool ok(Result<Value, Error> res){
+	return isize(res.error) == 0;
+}
+
+#define error_return(ResExpr) do { if(!ok((ResExpr))){ return (ResExpr).error; } } while(0)
+
+template<typename Value, typename Error>
+Value or_else(Result<Value, Error> res, Value alt){
+	if(!ok(res)){
+		return alt;
+	}
+	return res.value;
+}
+
+// Represents an optional value, the value presence is indicated by the `ok`
+// field.
+template<typename Value>
+struct Option {
+	Value value;
+	bool  ok;
+
+	Option() : ok{false} {}
+	Option(Value v) : value(v), ok{true} {}
+};
+
+template<typename Value>
+bool ok(Option<Value> res){
+	return res.ok;
+}
+
+template<typename Value>
+Value or_else(Option<Value> res, Value alt){
+	if(!res.ok){
+		return alt;
+	}
+	return res.value;
+}
+
 template<typename A, typename B = A>
 struct Pair {
 	A a;
@@ -187,23 +238,4 @@ isize len(Slice<T> s){
 	return s.length;
 }
 
-static inline
-void* mem_set(void* p, u8 val, isize count){
-	return __builtin_memset(p, val, count);
-}
-
-static inline
-void* mem_copy(void* dest, void const* source, isize count){
-	return __builtin_memmove(dest, source, count);
-}
-
-static inline
-void* mem_copy_no_overlap(void* dest, void const* source, isize count){
-	return __builtin_memcpy(dest, source, count);
-}
-
-static inline
-i32 mem_compare(void* pa, void* pb, isize count){
-	return __builtin_memcmp(pa, pb, count);
-}
 
