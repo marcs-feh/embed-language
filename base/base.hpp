@@ -48,8 +48,32 @@ T clamp(T lo, T x, T hi){
 	return min(max(lo, x), hi);
 }
 
-#define ContainerOf(Ptr, Type, Member) \
-	((Type *)(((void *)(Ptr)) - offsetof(Type, Member)))
+template<typename A, typename B = A>
+struct Pair {
+	A a;
+	B b;
+};
+
+namespace impl_defer {
+	template<typename F>
+	struct Deferred {
+		F f;
+		explicit Deferred(F&& f) : f(static_cast<F&&>(f)){}
+		~Deferred(){ f(); }
+	};
+	template<typename F>
+	auto make_deferred(F&& f){
+		return Deferred<F>(static_cast<F&&>(f));
+	}
+
+	#define _impl_defer_concat0(X, Y) X##Y
+	#define _impl_defer_concat1(X, Y) _impl_defer_concat0(X, Y)
+	#define _impl_defer_concat_counter(X) _impl_defer_concat1(X, __COUNTER__)
+	#define defer(Stmt) auto _impl_defer_concat_counter(_defer_) = ::impl_defer::make_deferred([&](){ do { Stmt ; } while(0); return; })
+}
+
+// #define ContainerOf(Ptr, Type, Member) \
+// 	((Type *)(((void *)(Ptr)) - offsetof(Type, Member)))
 
 // TODO: Change this to 202311L in the future, many versions of gcc for whatever
 // reason haven't updated the number
@@ -63,18 +87,19 @@ static_assert(sizeof(void(*)(void)) == sizeof(uintptr), "Mismatched pointer type
 static_assert(sizeof(isize) == sizeof(usize), "Mismatched size");
 static_assert(CHAR_BIT == 8, "Invalid char size");
 
-static inline
-void bounds_check(bool predicate){
-	if(!predicate){
-		__builtin_trap();
-	}
-}
+#ifndef NO_STDIO
+extern "C" { int printf(const char* restrict, ...); }
+#endif
 
 struct String {
 	u8 const* data;
 	isize     length;
 
+	byte operator[](isize idx);
+	String operator[](Pair<isize> range);
+
 	String() : data{nullptr}, length{0} {}
+	String(u8 const* data, isize n) : data{data}, length{n}{}
 	String(char const* cstr){
 		data = (u8 const*)cstr;
 		for(length = 0; cstr[length] != 0; length++){}
@@ -83,6 +108,82 @@ struct String {
 
 static inline
 isize len(String s){
+	return s.length;
+}
+
+
+#define string_printf_fmt(S) ((int)len((S))), ((char const*)((S).data))
+
+static inline
+void bounds_check(bool predicate, String msg){
+	#ifndef DISABLE_BOUNDS_CHECK
+	[[unlikely]] if(!predicate){
+		#ifndef NO_STDIO
+		printf("Bounds check failure: %.*s\n", string_printf_fmt(msg));
+		#endif
+		__builtin_trap();
+	}
+	#endif
+}
+
+inline
+byte String::operator[](isize idx){
+	bounds_check(idx >= 0 && idx <= length, "Out of bounds access to string");
+	return data[idx];
+}
+
+inline
+String String::operator[](Pair<isize> range){
+	bounds_check(range.a >= range.b && range.a < length && range.b <= length && range.a >= 0 && range.b >= 0, "Invalid range to substring");
+	String res = { &data[range.a], range.b - range.a };
+	return res;
+}
+
+static inline
+void ensure(bool predicate, String msg){
+	#ifndef DISABLE_ASSERT
+	[[unlikely]] if(!predicate){
+		#ifndef NO_STDIO
+		printf("Assertion failure: %.*s\n", string_printf_fmt(msg));
+		#endif
+		__builtin_trap();
+	}
+	#endif
+}
+
+[[noreturn]] static inline
+void panic(String msg){
+	#ifndef NO_STDIO
+	printf("Assertion failure: %.*s\n", string_printf_fmt(msg));
+	#endif
+	__builtin_trap();
+}
+
+template<typename T>
+struct Slice {
+	T*    data;
+	isize length;
+
+	T& operator[](isize idx){
+		bounds_check(idx >= 0 && idx <= length, "Out of bounds access to slice");
+		return data[idx];
+	}
+
+	T const & operator[](isize idx) const {
+		bounds_check(idx >= 0 && idx <= length, "Out of bounds access to slice");
+		return data[idx];
+	}
+
+	Slice<T> operator[](Pair<isize> range) const {
+		bounds_check(range.a >= range.b && range.a < length && range.b <= length && range.a >= 0 && range.b >= 0, "Invalid range to sub-slice");
+	}
+
+	Slice() : data{nullptr}, length{0}{}
+	Slice(T* ptr, isize n) : data{ptr}, length{n} {}
+};
+
+template<typename T>
+isize len(Slice<T> s){
 	return s.length;
 }
 
