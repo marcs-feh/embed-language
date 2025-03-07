@@ -45,7 +45,7 @@ enum struct AllocatorError : u8 {
 	UnsupportedMode,
 };
 
-using AllocatorFunc = Result<void*, AllocatorError>(
+using AllocatorFunc = Result<void*, AllocatorError>(*)(
 	void* impl,
 	AllocatorMode mode,
 	isize size,

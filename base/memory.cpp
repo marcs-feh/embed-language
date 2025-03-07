@@ -1,5 +1,6 @@
 #include "memory.hpp"
 
+#ifndef NO_MEMORY_BUILTIN
 void* mem_set(void* p, u8 val, isize count){
 	return __builtin_memset(p, val, count);
 }
@@ -15,6 +16,25 @@ void* mem_copy_no_overlap(void* dest, void const* source, isize count){
 i32 mem_compare(void* pa, void* pb, isize count){
 	return __builtin_memcmp(pa, pb, count);
 }
+#else
+#include <string.h>
+
+void* mem_set(void* p, u8 val, isize count){
+	return memset(p, val, count);
+}
+
+void* mem_copy(void* dest, void const* source, isize count){
+	return memmove(dest, source, count);
+}
+
+void* mem_copy_no_overlap(void* dest, void const* source, isize count){
+	return memcpy(dest, source, count);
+}
+
+i32 mem_compare(void* pa, void* pb, isize count){
+	return memcmp(pa, pb, count);
+}
+#endif
 
 Result<void*, AllocatorError> mem_alloc(Allocator allocator, isize count, isize align){
 	return allocator.func(allocator.data, AllocatorMode::Alloc, count, align, nullptr, 0, nullptr);
