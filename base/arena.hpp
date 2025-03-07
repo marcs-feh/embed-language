@@ -19,10 +19,12 @@ struct ArenaRegion {
 
 Arena arena_create(Slice<u8> buf);
 
+[[nodiscard]]
 void* arena_alloc(Arena* a, isize nbytes, isize align);
 
 void arena_reset(Arena* a);
 
+[[nodiscard]]
 bool arena_resize(Arena* a, void* ptr, isize nbytes);
 
 [[nodiscard]]
