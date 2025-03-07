@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base.hpp"
+#include "memory.hpp"
 
 struct Arena {
 	byte* data;
@@ -24,18 +25,31 @@ void arena_reset(Arena* a);
 
 bool arena_resize(Arena* a, void* ptr, isize nbytes);
 
+[[nodiscard]]
 ArenaRegion arena_region_begin(Arena* a);
 
 void arena_region_end(ArenaRegion reg);
 
-template<typename T>
-T* make(Arena* a){
-	return (T*) arena_alloc(a, sizeof(T), alignof(T));
+Allocator arena_allocator(Arena* a);
+
+template<typename T> [[nodiscard]]
+T* make(Allocator a){
+	return (T*) mem_alloc(a, sizeof(T), alignof(T)).value;
+}
+
+template<typename T> [[nodiscard]]
+Slice<T> make(isize n, Allocator a){
+	ensure(n >= 0, "Cannot allocate negative length");
+	auto res = mem_alloc(a, sizeof(T) * n, alignof(T));
+	return Slice<T>((T*)res.value, ok(res) ? n : 0);
 }
 
 template<typename T>
-Slice<T> make(isize n, Arena* a){
-	ensure(n >= 0, "Cannot allocate negative length");
-	void* ptr = arena_alloc(a, sizeof(T) * n, alignof(T));
-	return Slice<T>((T*)ptr, n);
+void destroy(Slice<T> s, Allocator a){
+	mem_free(a, s.data, len(s) * sizeof(T));
+}
+
+template<typename T>
+void destroy(T* p, Allocator a){
+	mem_free(a, p, sizeof(T));
 }

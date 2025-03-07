@@ -17,12 +17,12 @@ void* mem_copy_no_overlap(void* dest, void const* source, isize count);
 i32 mem_compare(void* pa, void* pb, isize count);
 
 enum struct AllocatorMode : u8 {
-	Query = 0,
-	Alloc = 1,
-	Resize = 2,
-	Free = 3,
-	FreeAll = 4,
-	AllocNonZero = 5,
+	Query         = 0,
+	Alloc         = 1,
+	Resize        = 2,
+	Free          = 3,
+	FreeAll       = 4,
+	AllocNonZero  = 5,
 	ResizeNonZero = 6,
 };
 
@@ -40,12 +40,34 @@ enum struct AllocatorCapabilities : u8 {
 enum struct AllocatorError : u8 {
 	None = 0,
 	OutOfMemory,
+	InvalidAlignment,
+	BadArgument,
+	UnsupportedMode,
 };
 
-using AllocatorFunc = Result<void*, AllocatorError>();
+using AllocatorFunc = Result<void*, AllocatorError>(
+	void* impl,
+	AllocatorMode mode,
+	isize size,
+	isize align,
+	void* old_ptr,
+	isize old_size,
+	AllocatorCapabilities* capability
+);
 
 struct Allocator {
 	void* data;
-
+	AllocatorFunc func;
 };
 
+[[nodiscard]]
+Result<void*, AllocatorError> mem_alloc(Allocator allocator, isize count, isize align);
+
+[[nodiscard]]
+Result<void*, AllocatorError> mem_resize(Allocator allocator, isize new_size);
+
+AllocatorCapabilities mem_query(Allocator allocator);
+
+void mem_free(Allocator allocator, void* ptr, isize old_size);
+
+void mem_free_all(Allocator allocator);
